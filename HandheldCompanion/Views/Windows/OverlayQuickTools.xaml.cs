@@ -1,5 +1,6 @@
 ﻿using GregsStack.InputSimulatorStandard.Native;
 using HandheldCompanion.Extensions;
+using HandheldCompanion.Managers;
 using HandheldCompanion.Views.QuickPages;
 using ModernWpf.Controls;
 using System;
@@ -7,9 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Windows;
-using System.Windows.Input;
 using System.Windows.Navigation;
-using MouseEventArgs = System.Windows.Input.MouseEventArgs;
 using Page = System.Windows.Controls.Page;
 
 namespace HandheldCompanion.Views.Windows
@@ -17,7 +16,7 @@ namespace HandheldCompanion.Views.Windows
     /// <summary>
     /// Interaction logic for QuickTools.xaml
     /// </summary>
-    public partial class QuickTools : Window
+    public partial class OverlayQuickTools : Window
     {
         #region imports
         [ComImport, Guid("4ce576fa-83dc-4F88-951c-9d0782b4e376")]
@@ -54,15 +53,10 @@ namespace HandheldCompanion.Views.Windows
         public QuickProfilesPage profilesPage;
         public QuickSuspenderPage suspenderPage;
 
-        // touchscroll vars
-        Point scrollPoint = new Point();
-        double scrollOffset = 1;
-        public static bool scrollLock = false;
-
         // manager vers
         public static BrightnessControl brightnessControl;
 
-        public QuickTools()
+        public OverlayQuickTools()
         {
             InitializeComponent();
 
@@ -81,12 +75,12 @@ namespace HandheldCompanion.Views.Windows
             _pages.Add("QuickSuspenderPage", suspenderPage);
 
             // update Position and Size
-            this.Height = (int)Math.Max(this.MinHeight, Properties.Settings.Default.QuickToolsHeight);
+            Height = (int)Math.Max(MinHeight, SettingsManager.GetDouble("QuickToolsHeight"));
 
-            this.Left = Math.Min(SystemParameters.PrimaryScreenWidth - this.MinWidth, Properties.Settings.Default.QuickToolsLeft);
-            this.Top = Math.Min(SystemParameters.PrimaryScreenHeight - this.MinHeight, Properties.Settings.Default.QuickToolsTop);
+            Left = Math.Min(SystemParameters.PrimaryScreenWidth - MinWidth, SettingsManager.GetDouble("QuickToolsLeft"));
+            Top = Math.Min(SystemParameters.PrimaryScreenHeight - MinHeight, SettingsManager.GetDouble("QuickToolsTop"));
 
-            this.SourceInitialized += QuickTools_SourceInitialized;
+            SourceInitialized += QuickTools_SourceInitialized;
         }
 
         private void QuickTools_SourceInitialized(object? sender, EventArgs e)
@@ -237,64 +231,6 @@ namespace HandheldCompanion.Views.Windows
         }
         #endregion
 
-        #region scrollView
-        private void ScrollViewer_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-        {
-            scrollPoint = e.GetPosition(scrollViewer);
-            scrollOffset = scrollViewer.VerticalOffset;
-        }
-
-        private bool hasScrolled;
-        private void ScrollViewer_PreviewMouseMove(object sender, MouseEventArgs e)
-        {
-            if (scrollPoint == new Point())
-                return;
-
-            if (scrollLock)
-                return;
-
-            double diff = (scrollPoint.Y - e.GetPosition(scrollViewer).Y);
-
-            if (Math.Abs(diff) >= 3)
-            {
-                scrollViewer.ScrollToVerticalOffset(scrollOffset + diff);
-                hasScrolled = true;
-                e.Handled = true;
-            }
-            else
-            {
-                hasScrolled = false;
-                e.Handled = false;
-            }
-        }
-
-        private void ScrollViewer_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
-        {
-            scrollPoint = new Point();
-
-            if (hasScrolled)
-            {
-                e.Handled = true;
-                hasScrolled = false;
-            }
-        }
-
-        private void scrollViewer_MouseLeave(object sender, MouseEventArgs e)
-        {
-            scrollPoint = new Point();
-
-            if (hasScrolled)
-            {
-                e.Handled = true;
-                hasScrolled = false;
-            }
-        }
-
-        private void ScrollViewer_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
-        {
-        }
-        #endregion
-
         private void StartTabTip()
         {
             var uiHostNoLaunch = new UIHostNoLaunch();
@@ -310,14 +246,11 @@ namespace HandheldCompanion.Views.Windows
             {
                 case WindowState.Normal:
                 case WindowState.Maximized:
-                    Properties.Settings.Default.QuickToolsLeft = this.Left;
-                    Properties.Settings.Default.QuickToolsTop = this.Top;
-
-                    Properties.Settings.Default.QuickToolsHeight = this.Height;
+                    SettingsManager.SetProperty("QuickToolsLeft", Left);
+                    SettingsManager.SetProperty("QuickToolsTop", Top);
+                    SettingsManager.SetProperty("QuickToolsHeight", ActualHeight);
                     break;
             }
-
-            Properties.Settings.Default.Save();
 
             // stop manager(s)
             brightnessControl.Dispose();
