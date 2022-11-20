@@ -1,10 +1,10 @@
-﻿using Gma.System.MouseKeyHook;
-using SharpDX.XInput;
+﻿using ControllerCommon.Controllers;
+using Gma.System.MouseKeyHook;
 using System;
 using System.Collections.Generic;
 using System.Windows.Forms;
 
-namespace HandheldCompanion.Managers.Classes
+namespace HandheldCompanion.Managers
 {
     [Flags]
     public enum InputsChordType : ushort
@@ -34,18 +34,15 @@ namespace HandheldCompanion.Managers.Classes
     [Serializable]
     public class InputsChord
     {
-        public GamepadButtonFlags GamepadButtons { get; set; } = GamepadButtonFlags.None;
-        public string SpecialKey { get; set; } = string.Empty;
+        public ControllerButtonFlags GamepadButtons { get; set; } = ControllerButtonFlags.None;
         public List<OutputKey> OutputKeys { get; set; } = new();
 
         public InputsChordType InputsType { get; set; } = InputsChordType.Click;
 
-        public InputsChord(GamepadButtonFlags GamepadButtons, string SpecialKey, List<OutputKey> OutputKeys, InputsChordType InputsType)
+        public InputsChord(ControllerButtonFlags GamepadButtons, List<OutputKey> OutputKeys, InputsChordType InputsType)
         {
             this.GamepadButtons = GamepadButtons;
-            this.SpecialKey = SpecialKey;
             this.OutputKeys = OutputKeys;
-
             this.InputsType = InputsType;
         }
 

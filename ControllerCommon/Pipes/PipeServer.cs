@@ -31,8 +31,7 @@ namespace ControllerCommon
         CLIENT_SETTINGS = 8,                // Sent to server to update settings
                                             // args: ...
 
-        CLIENT_HIDDER = 9,                  // Sent to server to register applications
-                                            // args: ...
+        OBSOLETE_0 = 9,                     // OBSOLETE, REUSEME
 
         OBSOLETE_1 = 11,                    // OBSOLETE, REUSEME
 
@@ -51,37 +50,35 @@ namespace ControllerCommon
         CLIENT_OVERLAY = 16,                // Sent to server to share current overlay status
                                             // args: ...
 
-        OBSOLETE_2 = 17,                    // OBSOLETE, REUSEME
-
-        CLIENT_CONTROLLERINDEX = 18,        // Sent to server to share details on controller
+        SERVER_VIBRATION = 17,              // Sent to client to notify a vibration feedback arrived
                                             // args: ...
+
+        OBSOLETE_2 = 18,                    // OBSOLETE, REUSEME
 
         CLIENT_CLEARINDEX = 19,             // Sent to server to clear all hidden controllers
                                             // args: ...
     }
 
-    public class PipeServer
+    public static class PipeServer
     {
-        private NamedPipeServer<PipeMessage> server;
+        private static NamedPipeServer<PipeMessage> server;
 
-        public event ConnectedEventHandler Connected;
-        public delegate void ConnectedEventHandler(Object sender);
+        public static event ConnectedEventHandler Connected;
+        public delegate void ConnectedEventHandler();
 
-        public event DisconnectedEventHandler Disconnected;
-        public delegate void DisconnectedEventHandler(Object sender);
+        public static event DisconnectedEventHandler Disconnected;
+        public delegate void DisconnectedEventHandler();
 
-        public event ClientMessageEventHandler ClientMessage;
-        public delegate void ClientMessageEventHandler(Object sender, PipeMessage e);
+        public static event ClientMessageEventHandler ClientMessage;
+        public delegate void ClientMessageEventHandler(PipeMessage e);
 
-        private readonly ConcurrentQueue<PipeMessage> m_queue;
-        private readonly Timer m_timer;
+        private static ConcurrentQueue<PipeMessage> m_queue = new();
+        private static Timer m_timer;
 
-        public bool connected;
+        public static bool IsConnected;
 
-        public PipeServer(string pipeName)
+        public static void Initialize(string pipeName)
         {
-            m_queue = new ConcurrentQueue<PipeMessage>();
-
             // monitors processes and settings
             m_timer = new Timer(1000) { Enabled = false, AutoReset = true };
             m_timer.Elapsed += SendMessageQueue;
@@ -92,63 +89,63 @@ namespace ControllerCommon
             ps.AddAccessRule(par);
 
             server = new NamedPipeServer<PipeMessage>(pipeName, ps);
+        }
+
+        public static void Open()
+        {
             server.ClientConnected += OnClientConnected;
             server.ClientDisconnected += OnClientDisconnected;
             server.ClientMessage += OnClientMessage;
             server.Error += OnError;
-        }
-
-        public override string ToString()
-        {
-            return this.GetType().Name;
-        }
-
-        public void Open()
-        {
             server?.Start();
-            LogManager.LogInformation("{0} has started", this.ToString());
+
+            LogManager.LogInformation("{0} has started", "PipeServer");
         }
 
-        public void Close()
+        public static void Close()
         {
+            server.ClientConnected -= OnClientConnected;
+            server.ClientDisconnected -= OnClientDisconnected;
+            server.ClientMessage -= OnClientMessage;
+            server.Error -= OnError;
             server?.Stop();
-            LogManager.LogInformation("{0} has stopped", this.ToString());
+
+            LogManager.LogInformation("{0} has stopped", "PipeServer");
             server = null;
         }
 
-        private void OnClientConnected(NamedPipeConnection<PipeMessage, PipeMessage> connection)
+        private static void OnClientConnected(NamedPipeConnection<PipeMessage, PipeMessage> connection)
         {
             LogManager.LogInformation("Client {0} is now connected!", connection.Id);
-            Connected?.Invoke(this);
+            Connected?.Invoke();
 
-            connected = true;
+            IsConnected = true;
 
             // send ping
             SendMessage(new PipeServerPing());
         }
 
-        private void OnClientDisconnected(NamedPipeConnection<PipeMessage, PipeMessage> connection)
+        private static void OnClientDisconnected(NamedPipeConnection<PipeMessage, PipeMessage> connection)
         {
             LogManager.LogInformation("Client {0} disconnected", connection.Id);
-            Disconnected?.Invoke(this);
+            Disconnected?.Invoke();
 
-            connected = false;
+            IsConnected = false;
         }
 
-        private void OnClientMessage(NamedPipeConnection<PipeMessage, PipeMessage> connection, PipeMessage message)
+        private static void OnClientMessage(NamedPipeConnection<PipeMessage, PipeMessage> connection, PipeMessage message)
         {
-            LogManager.LogDebug("Client {0} opcode: {1} says: {2}", connection.Id, message.code, string.Join(" ", message.ToString()));
-            ClientMessage?.Invoke(this, message);
+            ClientMessage?.Invoke(message);
         }
 
-        private void OnError(Exception exception)
+        private static void OnError(Exception exception)
         {
-            LogManager.LogError("{0} failed. {1}", this.ToString(), exception.Message);
+            LogManager.LogError("{0} failed. {1}", "PipeServer", exception.Message);
         }
 
-        public void SendMessage(PipeMessage message)
+        public static void SendMessage(PipeMessage message)
         {
-            if (!connected)
+            if (!IsConnected)
             {
                 Type nodeType = message.GetType();
                 if (nodeType == typeof(PipeSensor))
@@ -162,9 +159,9 @@ namespace ControllerCommon
             server?.PushMessage(message);
         }
 
-        private void SendMessageQueue(object sender, ElapsedEventArgs e)
+        private static void SendMessageQueue(object sender, ElapsedEventArgs e)
         {
-            if (!connected)
+            if (!IsConnected)
                 return;
 
             foreach (PipeMessage m in m_queue)

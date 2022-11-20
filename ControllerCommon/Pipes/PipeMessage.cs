@@ -1,4 +1,5 @@
-﻿using System;
+﻿using ControllerCommon.Controllers;
+using System;
 using System.Collections.Generic;
 using System.Numerics;
 
@@ -111,36 +112,30 @@ namespace ControllerCommon
     }
 
     [Serializable]
-    public enum HidderAction
-    {
-        Register = 0,
-        Unregister = 1
-    }
-
-    [Serializable]
-    public partial class PipeClientHidder : PipeMessage
-    {
-        public HidderAction action;
-        public string path;
-
-        public PipeClientHidder()
-        {
-            code = PipeCode.CLIENT_HIDDER;
-        }
-    }
-
-    [Serializable]
     public partial class PipeClientInput : PipeMessage
     {
-        public uint Buttons;
-        public ushort sButtons;
-
-        public bool IsKeyDown;
-        public bool IsKeyUp;
+        public ControllerInput Inputs;
 
         public PipeClientInput()
         {
             code = PipeCode.CLIENT_INPUT;
+        }
+
+        public PipeClientInput(ControllerInput inputs) : this()
+        {
+            Inputs = inputs;
+        }
+    }
+
+    [Serializable]
+    public partial class PipeClientVibration : PipeMessage
+    {
+        public ushort LargeMotor;
+        public ushort SmallMotor;
+
+        public PipeClientVibration()
+        {
+            code = PipeCode.SERVER_VIBRATION;
         }
     }
 
@@ -237,23 +232,6 @@ namespace ControllerCommon
             code = PipeCode.CLIENT_OVERLAY;
 
             this.Visibility = Visibility;
-        }
-    }
-
-    [Serializable]
-    public partial class PipeControllerIndex : PipeMessage
-    {
-        public int UserIndex;
-        public string deviceInstancePath;
-        public string baseContainerDeviceInstancePath;
-
-        public PipeControllerIndex(int UserIndex, string deviceInstancePath, string baseContainerDeviceInstancePath)
-        {
-            code = PipeCode.CLIENT_CONTROLLERINDEX;
-
-            this.UserIndex = UserIndex;
-            this.deviceInstancePath = deviceInstancePath;
-            this.baseContainerDeviceInstancePath = baseContainerDeviceInstancePath;
         }
     }
     #endregion
