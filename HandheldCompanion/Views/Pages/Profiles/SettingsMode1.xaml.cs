@@ -5,21 +5,26 @@ using System;
 using System.Windows;
 using System.Windows.Controls;
 
-namespace HandheldCompanion.Views.Pages
+namespace HandheldCompanion.Views.Pages.Profiles
 {
     /// <summary>
-    /// Interaction logic for ProfileSettingsMode1.xaml
+    /// Interaction logic for SettingsMode1.xaml
     /// </summary>
-    public partial class ProfileSettingsMode1 : Page
+    public partial class SettingsMode1 : Page
     {
-        private Profile profileCurrent;
-
         private int SteeringArraySize = 30;
         private ChartValues<ObservablePoint> SteeringLinearityPoints;
 
-        public ProfileSettingsMode1()
+        public SettingsMode1()
         {
             InitializeComponent();
+        }
+
+        public SettingsMode1(string Tag) : this()
+        {
+            this.Tag = Tag;
+
+            PipeClient.ServerMessage += OnServerMessage;
 
             SteeringLinearityPoints = new();
             for (int i = 0; i < SteeringArraySize; i++)
@@ -31,18 +36,13 @@ namespace HandheldCompanion.Views.Pages
             lvLineSeriesDefault.Values = new ChartValues<double>() { 0, 1 };
         }
 
-        public ProfileSettingsMode1(string Tag, Profile profileCurrent) : this()
+        public void SetProfile()
         {
-            this.Tag = Tag;
+            SliderDeadzoneAngle.Value = ProfilesPage.currentProfile.SteeringDeadzone;
+            SliderPower.Value = ProfilesPage.currentProfile.SteeringPower;
+            SliderSteeringAngle.Value = ProfilesPage.currentProfile.SteeringMaxAngle;
 
-            this.profileCurrent = profileCurrent;
-            PipeClient.ServerMessage += OnServerMessage;
-
-            SliderDeadzoneAngle.Value = profileCurrent.steering_deadzone;
-            SliderPower.Value = profileCurrent.steering_power;
-            SliderSteeringAngle.Value = profileCurrent.steering_max_angle;
-
-            lvLineSeriesValues.Values = GeneratePoints(profileCurrent.steering_power);
+            lvLineSeriesValues.Values = GeneratePoints(ProfilesPage.currentProfile.SteeringPower);
         }
 
         private void Page_Loaded(object sender, RoutedEventArgs e)
@@ -73,7 +73,8 @@ namespace HandheldCompanion.Views.Pages
 
         private void Rotate_Needle(float y)
         {
-            Dispatcher.Invoke(() =>
+            // UI thread
+            Application.Current.Dispatcher.Invoke(() =>
             {
                 lvAngularGauge.Value = y;
             });
@@ -81,27 +82,27 @@ namespace HandheldCompanion.Views.Pages
 
         private void SliderSteeringAngle_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
-            if (profileCurrent is null)
+            if (ProfilesPage.currentProfile is null)
                 return;
 
-            profileCurrent.steering_max_angle = (float)SliderSteeringAngle.Value;
+            ProfilesPage.currentProfile.SteeringMaxAngle = (float)SliderSteeringAngle.Value;
         }
 
         private void SliderPower_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
-            if (profileCurrent is null)
+            if (ProfilesPage.currentProfile is null)
                 return;
 
-            profileCurrent.steering_power = (float)SliderPower.Value;
+            ProfilesPage.currentProfile.SteeringPower = (float)SliderPower.Value;
             lvLineSeriesValues.Values = GeneratePoints(SliderPower.Value);
         }
 
         private void SliderDeadzoneAngle_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
-            if (profileCurrent is null)
+            if (ProfilesPage.currentProfile is null)
                 return;
 
-            profileCurrent.steering_deadzone = (float)SliderDeadzoneAngle.Value;
+            ProfilesPage.currentProfile.SteeringDeadzone = (float)SliderDeadzoneAngle.Value;
         }
 
         private ChartValues<ObservablePoint> GeneratePoints(double Power)

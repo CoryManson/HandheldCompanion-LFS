@@ -1,7 +1,10 @@
+using ControllerCommon.Inputs;
 using ControllerCommon.Managers;
 using ControllerCommon.Sensors;
 using ControllerCommon.Utils;
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Numerics;
 using Windows.Devices.Sensors;
 using static ControllerCommon.OneEuroFilter;
@@ -9,7 +12,17 @@ using static ControllerCommon.Utils.DeviceUtils;
 
 namespace ControllerCommon.Devices
 {
-    public abstract class Device
+    [Flags]
+    public enum DeviceCapacities : ushort
+    {
+        None = 0,
+        InternalSensor = 1,
+        ExternalSensor = 2,
+        ControllerSensor = 3,
+        Trackpads = 3,
+    }
+
+    public abstract class IDevice
     {
         protected USBDeviceInfo sensor = new USBDeviceInfo();
         public string InternalSensorName = string.Empty;
@@ -22,12 +35,7 @@ namespace ControllerCommon.Devices
         public string ProductIllustration = "device_generic";
         public string ProductModel = "default";
 
-        public Dictionary<SensorFamily, bool> hasSensors = new()
-        {
-            { SensorFamily.Windows, false },
-            { SensorFamily.SerialUSBIMU, false },
-            { SensorFamily.Controller, false },
-        };
+        public DeviceCapacities Capacities = DeviceCapacities.None;
 
         // device nominal TDP (slow, fast)
         public double[] nTDP = { 15, 15, 20 };
@@ -56,10 +64,11 @@ namespace ControllerCommon.Devices
         public OneEuroSettings oneEuroSettings = new OneEuroSettings(0.002d, 0.008d);
 
         // trigger specific settings
-        public List<DeviceChord> listeners = new();
+        public List<DeviceChord> OEMChords = new();
+        public IEnumerable<ButtonFlags> OEMButtons => OEMChords.SelectMany(a => a.state.Buttons).Distinct();
 
-        private static Device device;
-        public static Device GetDefault()
+        private static IDevice device;
+        public static IDevice GetDefault()
         {
             if (device is not null)
                 return device;
@@ -120,6 +129,9 @@ namespace ControllerCommon.Devices
                     {
                         switch (ProductName)
                         {
+                            case "WIN2":
+                                device = new GPDWin2();
+                                break;
                             case "G1618-03":
                                 device = new GPDWin3();
                                 break;
@@ -193,15 +205,30 @@ namespace ControllerCommon.Devices
                 if (sensor is not null)
                     InternalSensorName = sensor.Name;
 
-                hasSensors[SensorFamily.Windows] = true;
+                Capacities |= DeviceCapacities.InternalSensor;
             }
+            else if (Capacities.HasFlag(DeviceCapacities.InternalSensor))
+                Capacities &= ~DeviceCapacities.InternalSensor;
 
             var USB = SerialUSBIMU.GetDefault();
             if (USB is not null)
             {
                 ExternalSensorName = USB.GetName();
-                hasSensors[SensorFamily.SerialUSBIMU] = true;
+
+                Capacities |= DeviceCapacities.ExternalSensor;
             }
+            else if (Capacities.HasFlag(DeviceCapacities.ExternalSensor))
+                Capacities &= ~DeviceCapacities.ExternalSensor;
+        }
+
+        public IDevice()
+        {
+            // OEMChords.Add(new DeviceChord("temp", new List<KeyCode>() { KeyCode.F1 }, new List<KeyCode>() { KeyCode.F1 }, false, ButtonFlags.OEM1));
+        }
+
+        public string GetButtonName(ButtonFlags button)
+        {
+            return EnumUtils.GetDescriptionFromEnumValue(button, this.GetType().Name);
         }
     }
 }
